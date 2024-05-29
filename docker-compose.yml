@@ -1,0 +1,78 @@
+services:
+  django-external-storage-sync:
+    stdin_open: true
+    tty: true
+    image: external_storage_sync:latest
+    build:
+      context: .
+      args:
+        - SSHKEY
+        - KNOWN_HOSTS
+    command: django
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings
+    init: true
+    depends_on:
+      - rabbitmq-external-storage-sync
+      - postgres-external-storage-sync
+    ports:
+      - "27003:8000"
+    volumes:
+      - .:/var/www/external_storage_sync
+      - ./bin/entrypoint.sh:/entrypoint.sh
+      - ./bin/health_check.sh:/health_check.sh
+
+  postgres-external-storage-sync:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: external-storage-sync
+      POSTGRES_PASSWORD: external-storage-sync
+      POSTGRES_DB: external-storage-sync
+    ports:
+      - "27001:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  dramatiq-external-storage-sync:
+    stdin_open: true
+    image: external_storage_sync:latest
+    build:
+      context: .
+      args:
+        - SSHKEY
+        - KNOWN_HOSTS
+    command: dramatiq
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings
+    init: true
+    depends_on:
+      - rabbitmq-external-storage-sync
+    volumes:
+      - .:/var/www/external_storage_sync
+      - ./bin/entrypoint.sh:/entrypoint.sh
+
+  rabbitmq-external-storage-sync:
+    hostname: rabbitmq-external-storage-sync
+    image: rabbitmq:3-management
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    ports:
+      - "27002:15672"
+
+  memcached-external-storage-sync:
+    image: memcached:1.6.27-alpine
+
+  nginx-external-storage-sync:
+    image: nginx:latest
+    ports:
+      - "27000:8000"
+    volumes:
+      - ./bin/external_storage_sync.conf:/etc/nginx/conf.d/external_storage_sync.conf
+      - ./app/staticfiles:/usr/share/nginx/html/static
+      - ./storage:/usr/share/nginx/storage
+    depends_on:
+      - django-external-storage-sync
+
+volumes:
+    pgdata:

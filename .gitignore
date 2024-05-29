@@ -1,0 +1,11 @@
+.env
+*sqlite3
+.idea/
+.vscode/*
+.python-version
+*.pyc
+venv/
+*__pycache__/
+app/staticfiles/*
+coverage.*
+.coverage
